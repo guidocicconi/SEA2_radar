@@ -34,7 +34,7 @@
 #                                                                             */
 
 /*==================[inclusions]=============================================*/
-#include "../../../pwm_test/appBoard/inc/appBoard.h"
+#include "appBoard.h"
 
 /*==================[macros and typedef]=====================================*/
 

@@ -34,63 +34,37 @@
 #                                                                             */
 
 /*==================[inclusions]=============================================*/
-#include "appBoard.h"
-#include "efHal_gpio.h"
-#include "efHal_pwm.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
 #include "servo.h"
 
 /*==================[macros and typedef]=====================================*/
+
+#define SERVO_PWM_FREQ 50
 
 /*==================[internal functions declaration]=========================*/
 
 /*==================[internal data definition]===============================*/
 
-static TimerHandle_t timerHandle;
-
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
-static void main_task(void *pvParameters)
-{
-    servo_init();
-    xTimerStart(timerHandle, portMAX_DELAY);
-    for (;;)
-    {
-    	vTaskDelay(1000 / portTICK_PERIOD_MS);
-    	efHal_gpio_togglePin(EF_HAL_GPIO_LED_GREEN);
-    }
-}
-
-static void timerCallback (TimerHandle_t xTimer){
-	static uint8_t servoPosDegre = 0;
-	static int8_t deltaPosDegree = 5;
-
-	servo_setPos(servoPosDegre);
-
-	servoPosDegre += deltaPosDegree;
-	if(servoPosDegre >= 150) deltaPosDegree = -5;
-	else if(servoPosDegre <= 30) deltaPosDegree = 5;
-}
 
 /*==================[external functions definition]==========================*/
-int main(void)
-{
-    appBoard_init();
 
-    xTaskCreate(main_task, "main_task", 100, NULL, 0, NULL);
-
-    timerHandle = xTimerCreate("timer", 60/portTICK_PERIOD_MS, pdTRUE, 0, timerCallback);
-
-    vTaskStartScheduler();
-    for (;;);
+extern void servo_init(void){
+	efHal_pwm_setPeriod(SERVO_PWM, (uint32_t)((float)1e9/(float)SERVO_PWM_FREQ));
+	return;
 }
 
-extern void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
-{
-    while (1);
+extern void servo_setPos(uint8_t posDegree){
+	float servoDutyCount = 0;
+	servoDutyCount = SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(SERVO_PWM_MAX_COUNT + 1) + (float)posDegree/180.0 * ((SERVO_PWM_MAX_DUTY_US*1e-6*50.0*(SERVO_PWM_MAX_COUNT + 1))-(SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(SERVO_PWM_MAX_COUNT + 1)));
+	efHal_pwm_setDuty(SERVO_PWM, (uint32_t)servoDutyCount, EF_HAL_PWM_DUTY_COUNT);
+	return;
 }
 
 /*==================[end of file]============================================*/
+
+
+
+
+

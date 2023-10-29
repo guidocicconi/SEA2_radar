@@ -32,65 +32,36 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #                                                                             */
+#ifndef SERVO_H_
+#define SERVO_H_
 
 /*==================[inclusions]=============================================*/
 #include "appBoard.h"
-#include "efHal_gpio.h"
 #include "efHal_pwm.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "timers.h"
-#include "servo.h"
+
+/*==================[cplusplus]==============================================*/
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*==================[macros and typedef]=====================================*/
 
-/*==================[internal functions declaration]=========================*/
+#define SERVO_PWM EF_HAL_PWM0
+#define SERVO_PWM_MAX_COUNT 14999
+#define SERVO_PWM_MIN_DUTY_US 500
+#define SERVO_PWM_MAX_DUTY_US 2580
 
-/*==================[internal data definition]===============================*/
+/*==================[external data declaration]==============================*/
 
-static TimerHandle_t timerHandle;
+/*==================[external functions declaration]=========================*/
 
-/*==================[external data definition]===============================*/
+extern void servo_init(void);
+extern void servo_setPos(uint8_t posDegree);
 
-/*==================[internal functions definition]==========================*/
-static void main_task(void *pvParameters)
-{
-    servo_init();
-    xTimerStart(timerHandle, portMAX_DELAY);
-    for (;;)
-    {
-    	vTaskDelay(1000 / portTICK_PERIOD_MS);
-    	efHal_gpio_togglePin(EF_HAL_GPIO_LED_GREEN);
-    }
+/*==================[cplusplus]==============================================*/
+#ifdef __cplusplus
 }
-
-static void timerCallback (TimerHandle_t xTimer){
-	static uint8_t servoPosDegre = 0;
-	static int8_t deltaPosDegree = 5;
-
-	servo_setPos(servoPosDegre);
-
-	servoPosDegre += deltaPosDegree;
-	if(servoPosDegre >= 150) deltaPosDegree = -5;
-	else if(servoPosDegre <= 30) deltaPosDegree = 5;
-}
-
-/*==================[external functions definition]==========================*/
-int main(void)
-{
-    appBoard_init();
-
-    xTaskCreate(main_task, "main_task", 100, NULL, 0, NULL);
-
-    timerHandle = xTimerCreate("timer", 60/portTICK_PERIOD_MS, pdTRUE, 0, timerCallback);
-
-    vTaskStartScheduler();
-    for (;;);
-}
-
-extern void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
-{
-    while (1);
-}
+#endif
 
 /*==================[end of file]============================================*/
+#endif /* SERVO_H_ */
