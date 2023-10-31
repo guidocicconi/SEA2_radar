@@ -1,10 +1,7 @@
+/*
 ###############################################################################
 #
-# Copyright 2021, Gustavo Muro
-# Copyright 2014, 2015, Mariano Cerdeiro
-# Copyright 2014, 2015, 2016, Juan Cecconi (Numetron, UTN-FRBA)
-# Copyright 2014, 2015, Esteban Volentini (LabMicro, UNT)
-# Copyright 2017, Gustavo Muro (DIGI CHECK)
+# Copyright 2023, Guido Cicconi
 # All rights reserved
 #
 # This file is part of EmbeddedFirmware.
@@ -34,28 +31,39 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-###############################################################################
+#                                                                             */
 
-PROJECT_NAME               = $(lastword $(subst $(DS), , $(PROJECT_PATH)))
+#ifndef SENSOR_SR04_H_
+#define SENSOR_SR04_H_
 
-# Internal modules
-$(PROJECT_NAME)_SRC_PATH  += $(PROJECT_PATH)$(DS)application$(DS)src \
-							 $(PROJECT_PATH)$(DS)appBoard$(DS)src
+/*==================[inclusions]=============================================*/
+#include "appBoard.h"
+#include "efHal_gpio.h"
 
-SRC_FILES 			 += $(foreach application_SRC, $($(PROJECT_NAME)_SRC_PATH), $(wildcard $(application_SRC)$(DS)*.c)) 
+/*==================[cplusplus]==============================================*/
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-INC_FILES            += $(PROJECT_PATH)$(DS)application$(DS)inc \
-						$(PROJECT_PATH)$(DS)appBoard$(DS)inc
-						
+/*==================[macros and typedef]=====================================*/
 
-# Modules needed for this project
-MODS += externals$(DS)drivers
-MODS += externals$(DS)board
-MODS += externals$(DS)freertos
-MODS += externals$(DS)cmsis
+typedef enum{
+	SENSOR_DISTANCE_CM = 0,
+	SENSOR_DISTANCE_INCHES
+} sensor_distance_t;
 
-MODS += modules$(DS)efHal
-MODS += modules$(DS)efErrorHdl
-MODS += modules$(DS)softTimers
-MODS += modules$(DS)bsp_$(BOARD)
+/*==================[external data declaration]==============================*/
 
+/*==================[external functions declaration]=========================*/
+
+extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin);
+extern uint16_t sensor_sr04_measure(sensor_distance_t unit);
+
+/*==================[cplusplus]==============================================*/
+#ifdef __cplusplus
+}
+#endif
+
+/*==================[end of file]============================================*/
+
+#endif /* SENSOR_SR04_H_ */

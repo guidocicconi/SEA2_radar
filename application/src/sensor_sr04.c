@@ -34,17 +34,18 @@
 #                                                                             */
 
 /*==================[inclusions]=============================================*/
-#include "servo.h"
+#include "sensor_sr04.h"
+#include "task.h"
+#include "softTimers.h"
 
 /*==================[macros and typedef]=====================================*/
-
-#define SERVO_PWM_FREQ 50
 
 /*==================[internal functions declaration]=========================*/
 
 /*==================[internal data definition]===============================*/
 
-efHal_pwm_id_t _pwmPin;
+int32_t timerHandler = 0;
+efHal_gpio_id_t _trigPin, _echoPin;
 
 /*==================[external data definition]===============================*/
 
@@ -52,22 +53,39 @@ efHal_pwm_id_t _pwmPin;
 
 /*==================[external functions definition]==========================*/
 
-extern void servo_init(efHal_pwm_id_t pwmPin){
-	_pwmPin = pwmPin;
-	efHal_pwm_setPeriod(pwmPin, (uint32_t)((float)1e9/(float)SERVO_PWM_FREQ));
-	return;
+extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin){
+	_trigPin = trigPin;
+	_echoPin = echoPin;
+	efHal_gpio_confPin(trigPin, EF_HAL_GPIO_OUTPUT, EF_HAL_GPIO_PULL_DISABLE, false);
+	efHal_gpio_setPin(trigPin, false);
+	efHal_gpio_confPin(echoPin, EF_HAL_GPIO_INPUT, EF_HAL_GPIO_PULL_DISABLE, false);
+	efHal_gpio_confInt(echoPin, EF_HAL_GPIO_INT_TYPE_BOTH_EDGE);
+	softTimers_init();
+	timerHandler = softTimers_open(1);
 }
 
-extern void servo_setPos(uint8_t posDegree){
-	float servoDutyCount = 0;
-	servoDutyCount = SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(SERVO_PWM_MAX_COUNT + 1) + (float)posDegree/180.0 * ((SERVO_PWM_MAX_DUTY_US*1e-6*50.0*(SERVO_PWM_MAX_COUNT + 1))-(SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(SERVO_PWM_MAX_COUNT + 1)));
-	efHal_pwm_setDuty(_pwmPin, (uint32_t)servoDutyCount, EF_HAL_PWM_DUTY_COUNT);
-	return;
+extern uint16_t sensor_sr04_measure(sensor_distance_t unit){
+	uint16_t distance;
+
+	taskENTER_CRITICAL(); //Critical for 10uS trigger signal
+	efHal_gpio_setPin(_trigPin, true);
+	softTimers_clear(timerHandler);
+	while(softTimers_get(timerHandler, false) < 10);
+	efHal_gpio_setPin(_trigPin, false);
+	taskEXIT_CRITICAL();
+
+	efHal_gpio_waitForInt(_echoPin, 300/portTICK_PERIOD_MS); //Wait for rising edge
+	softTimers_clear(timerHandler);
+	efHal_gpio_waitForInt(_echoPin, 300/portTICK_PERIOD_MS); //Wait for falling edge
+
+	if(unit == SENSOR_DISTANCE_CM)
+		distance = softTimers_get(timerHandler, false)/58;
+	else if (unit == SENSOR_DISTANCE_INCHES)
+		distance = softTimers_get(timerHandler, false)/148;
+	else
+		distance = 0;
+
+	return distance;
 }
 
 /*==================[end of file]============================================*/
-
-
-
-
-

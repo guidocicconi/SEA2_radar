@@ -46,7 +46,6 @@ extern "C" {
 
 /*==================[macros and typedef]=====================================*/
 
-#define SERVO_PWM EF_HAL_PWM0
 #define SERVO_PWM_MAX_COUNT 14999
 #define SERVO_PWM_MIN_DUTY_US 500
 #define SERVO_PWM_MAX_DUTY_US 2580
@@ -55,7 +54,7 @@ extern "C" {
 
 /*==================[external functions declaration]=========================*/
 
-extern void servo_init(void);
+extern void servo_init(efHal_pwm_id_t pwmPin);
 extern void servo_setPos(uint8_t posDegree);
 
 /*==================[cplusplus]==============================================*/

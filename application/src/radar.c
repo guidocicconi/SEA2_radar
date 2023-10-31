@@ -39,50 +39,65 @@
 #include "efHal_pwm.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "timers.h"
+#include "softTimers.h"
 #include "servo.h"
+#include "sensor_sr04.h"
 
 /*==================[macros and typedef]=====================================*/
+
+#define SERVO_PWM EF_HAL_PWM0
+#define SENSOR_SR04_TRIG EF_HAL_D4
+#define SENSOR_SR04_ECHO EF_HAL_D5
 
 /*==================[internal functions declaration]=========================*/
 
 /*==================[internal data definition]===============================*/
-
-static TimerHandle_t timerHandle;
 
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
 static void main_task(void *pvParameters)
 {
-    servo_init();
-    xTimerStart(timerHandle, portMAX_DELAY);
+	uint8_t servoPosDegre = 0;
+	int8_t deltaPosDegree = 5;
+	uint16_t distanceCm = 0;
+
+    servo_init(SERVO_PWM);
+    sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO);
+
+    TickType_t xLastWakeTime = xTaskGetTickCount();
+
     for (;;)
     {
-    	vTaskDelay(1000 / portTICK_PERIOD_MS);
+    	distanceCm = sensor_sr04_measure(SENSOR_DISTANCE_CM);
+
+    	servo_setPos(servoPosDegre);
+
+    	servoPosDegre += deltaPosDegree;
+    	if(servoPosDegre >= 150) deltaPosDegree = -5;
+    	else if(servoPosDegre <= 30) deltaPosDegree = 5;
+
+    	vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
+    }
+}
+
+static void blinky_task(void *pvParameters)
+{
+    for (;;)
+    {
+    	vTaskDelay(pdMS_TO_TICKS(1000));
     	efHal_gpio_togglePin(EF_HAL_GPIO_LED_GREEN);
     }
 }
 
-static void timerCallback (TimerHandle_t xTimer){
-	static uint8_t servoPosDegre = 0;
-	static int8_t deltaPosDegree = 5;
-
-	servo_setPos(servoPosDegre);
-
-	servoPosDegre += deltaPosDegree;
-	if(servoPosDegre >= 150) deltaPosDegree = -5;
-	else if(servoPosDegre <= 30) deltaPosDegree = 5;
-}
 
 /*==================[external functions definition]==========================*/
 int main(void)
 {
     appBoard_init();
 
-    xTaskCreate(main_task, "main_task", 100, NULL, 0, NULL);
-
-    timerHandle = xTimerCreate("timer", 60/portTICK_PERIOD_MS, pdTRUE, 0, timerCallback);
+    xTaskCreate(main_task, "main_task", 100, NULL, 1, NULL);
+    xTaskCreate(blinky_task, "blinky_task", 100, NULL, 0, NULL);
 
     vTaskStartScheduler();
     for (;;);
@@ -93,4 +108,8 @@ extern void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName 
     while (1);
 }
 
+void vApplicationTickHook(void)
+{
+	softTimers_rollOver();
+}
 /*==================[end of file]============================================*/
