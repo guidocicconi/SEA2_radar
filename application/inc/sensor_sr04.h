@@ -48,8 +48,8 @@ extern "C" {
 /*==================[macros and typedef]=====================================*/
 
 typedef enum{
-	SENSOR_DISTANCE_CM = 0,
-	SENSOR_DISTANCE_INCHES
+	SENSOR_UNIT_CM = 0,
+	SENSOR_UNIT_INCHES
 } sensor_distance_t;
 
 /*==================[external data declaration]==============================*/

@@ -54,7 +54,7 @@ extern "C" {
 
 /*==================[external functions declaration]=========================*/
 
-extern void servo_init(efHal_pwm_id_t pwmPin);
+extern void servo_init(efHal_pwm_id_t pwmPin, uint8_t initialPos);
 extern void servo_setPos(uint8_t posDegree);
 
 /*==================[cplusplus]==============================================*/

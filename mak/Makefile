@@ -57,5 +57,6 @@ MODS += externals$(DS)cmsis
 MODS += modules$(DS)efHal
 MODS += modules$(DS)efErrorHdl
 MODS += modules$(DS)softTimers
+MODS += modules$(DS)utils
 MODS += modules$(DS)bsp_$(BOARD)
 

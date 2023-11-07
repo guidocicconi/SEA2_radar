@@ -35,6 +35,7 @@
 
 /*==================[inclusions]=============================================*/
 #include <stdio.h>
+#include <string.h>
 #include "appBoard.h"
 #include "efHal_gpio.h"
 #include "efHal_pwm.h"
@@ -44,53 +45,82 @@
 #include "softTimers.h"
 #include "servo.h"
 #include "sensor_sr04.h"
+#include "efLeds.h"
 
 /*==================[macros and typedef]=====================================*/
+#define SERVO_MIN_ANGLE 30
+#define SERVO_MAX_ANGLE 150
+#define SERVO_DELTA_ANGLE 5
+#define SERVO_PERIOD_MS 100
 
 #define SERVO_PWM EF_HAL_PWM0
 #define SENSOR_SR04_TRIG EF_HAL_D4
 #define SENSOR_SR04_ECHO EF_HAL_D5
 
 #define RADAR_UART efHal_dh_UART0
-#define RADAR_UART_BAUDRATE 9600
+#define RADAR_UART_BAUDRATE 115200
+
+typedef enum{
+	GREEN_LED = 0,
+	RED_LED,
+	TOTAL_LEDS
+}leds_t;
 
 /*==================[internal functions declaration]=========================*/
 
 /*==================[internal data definition]===============================*/
 
-static TaskHandle_t uartTaskHandler;
+static TaskHandle_t uartTaskHandler = NULL, sensorTaskHandler = NULL;
+
+static efLeds_conf_t leds_conf[2] = {
+		{EF_HAL_GPIO_LED_GREEN, false},
+		{EF_HAL_GPIO_LED_RED, false},
+};
 
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
-static void main_task(void *pvParameters)
+static void servo_task(void *pvParameters)
 {
-	uint8_t servoPosDegre = 0;
-	int8_t deltaPosDegree = 5;
-	uint16_t distanceCm = 0;
-	uint32_t uartNotifyValue = 0;
+	uint8_t servoPosDegree = SERVO_MIN_ANGLE;
+	int8_t deltaPosDegree = SERVO_DELTA_ANGLE;
 
-    servo_init(SERVO_PWM);
-    sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO);
+	efLeds_init(leds_conf, TOTAL_LEDS);
+	efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
+
+    servo_init(SERVO_PWM, SERVO_MIN_ANGLE);
 
     TickType_t xLastWakeTime = xTaskGetTickCount();
 
     for (;;)
     {
-    	distanceCm = sensor_sr04_measure(SENSOR_DISTANCE_CM);
+    	servo_setPos(servoPosDegree);
 
-    	uartNotifyValue = 0;
-    	uartNotifyValue = ((servoPosDegre << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
+    	vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(SERVO_PERIOD_MS));
 
+    	xTaskNotify(sensorTaskHandler, servoPosDegree, eSetValueWithOverwrite);
+
+    	servoPosDegree += deltaPosDegree;
+    	if(servoPosDegree >= SERVO_MAX_ANGLE) deltaPosDegree = -SERVO_DELTA_ANGLE;
+    	else if(servoPosDegree <= SERVO_MIN_ANGLE) deltaPosDegree = SERVO_DELTA_ANGLE;
+    }
+}
+
+static void sensor_task(void *pvParameters)
+{
+	uint16_t distanceCm = 0;
+	uint32_t servoPosDegree = 0, uartNotifyValue = 0;
+
+    sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO);
+
+    for (;;)
+    {
+    	xTaskNotifyWait(0, 0, &servoPosDegree, pdMS_TO_TICKS(300));
+
+    	distanceCm = sensor_sr04_measure(SENSOR_UNIT_CM);
+
+    	uartNotifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
     	xTaskNotify(uartTaskHandler, uartNotifyValue, eSetValueWithOverwrite);
-
-    	servo_setPos(servoPosDegre);
-
-    	servoPosDegre += deltaPosDegree;
-    	if(servoPosDegre >= 150) deltaPosDegree = -5;
-    	else if(servoPosDegre <= 30) deltaPosDegree = 5;
-
-    	vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(100));
     }
 }
 
@@ -98,6 +128,8 @@ static void uart_task(void *pvParameters)
 {
 	uint32_t uartNotifyValue = 0;
 	uint16_t posValue = 0, distValue = 0;
+	char uartDataToSend[11] = {0};
+
 	efHal_uart_conf_t uart_conf = {
 			.baudrate = RADAR_UART_BAUDRATE,
 			.dataBits = EF_HAL_UART_DATA_BITS_8,
@@ -105,10 +137,7 @@ static void uart_task(void *pvParameters)
 			.stopBits = EF_HAL_UART_STOP_BITS_1
 	};
 
-	efHal_uart_init();
 	efHal_uart_conf(RADAR_UART, &uart_conf);
-
-	char uartDataToSend[10];
 
     for (;;)
     {
@@ -117,31 +146,20 @@ static void uart_task(void *pvParameters)
     	posValue = (uartNotifyValue >> 16) & 0xFFFF;
     	distValue = uartNotifyValue & 0xFFFF;
 
-    	sprintf(uartDataToSend, "(%d,%d)", posValue, distValue);
+    	sprintf(uartDataToSend, "(%d,%d)\n", posValue, distValue);
 
-    	efHal_uart_send(RADAR_UART, uartDataToSend, sizeof(uartDataToSend), pdMS_TO_TICKS(100));
+    	efHal_uart_send(RADAR_UART, uartDataToSend, strlen(uartDataToSend), pdMS_TO_TICKS(100));
     }
 }
-
-
-static void blinky_task(void *pvParameters)
-{
-    for (;;)
-    {
-    	vTaskDelay(pdMS_TO_TICKS(1000));
-    	efHal_gpio_togglePin(EF_HAL_GPIO_LED_GREEN);
-    }
-}
-
 
 /*==================[external functions definition]==========================*/
 int main(void)
 {
     appBoard_init();
 
-    xTaskCreate(main_task, "main_task", 100, NULL, 2, NULL);
-    xTaskCreate(uart_task, "uart_task", 100, NULL, 1, NULL);
-    xTaskCreate(blinky_task, "blinky_task", 100, NULL, 0, &uartTaskHandler);
+    xTaskCreate(servo_task, "servo_task", 100, NULL, 2, NULL);
+    xTaskCreate(sensor_task, "sensor_task", 100, NULL, 1, &sensorTaskHandler);
+    xTaskCreate(uart_task, "uart_task", 200, NULL, 0, &uartTaskHandler);
 
     vTaskStartScheduler();
     for (;;);

@@ -35,6 +35,8 @@
 
 /*==================[inclusions]=============================================*/
 #include "servo.h"
+#include "FreeRTOS.h"
+#include "task.h"
 
 /*==================[macros and typedef]=====================================*/
 
@@ -52,9 +54,11 @@ efHal_pwm_id_t _pwmPin;
 
 /*==================[external functions definition]==========================*/
 
-extern void servo_init(efHal_pwm_id_t pwmPin){
+extern void servo_init(efHal_pwm_id_t pwmPin, uint8_t initialPos){
 	_pwmPin = pwmPin;
 	efHal_pwm_setPeriod(pwmPin, (uint32_t)((float)1e9/(float)SERVO_PWM_FREQ));
+    servo_setPos(initialPos);
+    vTaskDelay(pdMS_TO_TICKS(1000));
 	return;
 }
 
