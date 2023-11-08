@@ -32,60 +32,29 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 #                                                                             */
+#ifndef PIT_OUTPUT_PULSE_H_
+#define PIT_OUTPUT_PULSE_H_
 
 /*==================[inclusions]=============================================*/
-#include "sensor_sr04.h"
-#include "task.h"
-#include "softTimers.h"
-#include "pit_outputPulse.h"
 
-#define TRIG_PIN_PULSE_US 10
+/*==================[cplusplus]==============================================*/
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /*==================[macros and typedef]=====================================*/
+#include "appBoard.h"
 
-/*==================[internal functions declaration]=========================*/
+/*==================[external data declaration]==============================*/
 
-/*==================[internal data definition]===============================*/
+/*==================[external functions declaration]=========================*/
+extern void pit_OP_config(void);
+extern void pit_OP_launch(efHal_gpio_id_t pin, uint32_t timeUs);
 
-int32_t timerHandler = 0;
-efHal_gpio_id_t _trigPin, _echoPin;
-
-/*==================[external data definition]===============================*/
-
-/*==================[internal functions definition]==========================*/
-
-/*==================[external functions definition]==========================*/
-
-extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin){
-	_trigPin = trigPin;
-	_echoPin = echoPin;
-
-	efHal_gpio_confPin(trigPin, EF_HAL_GPIO_OUTPUT, EF_HAL_GPIO_PULL_DISABLE, false);
-	efHal_gpio_setPin(trigPin, false);
-	efHal_gpio_confPin(echoPin, EF_HAL_GPIO_INPUT, EF_HAL_GPIO_PULL_DISABLE, false);
-	efHal_gpio_confInt(echoPin, EF_HAL_GPIO_INT_TYPE_BOTH_EDGE);
-
-	softTimers_init();
-	timerHandler = softTimers_open(1);
+/*==================[cplusplus]==============================================*/
+#ifdef __cplusplus
 }
-
-extern uint16_t sensor_sr04_measure(sensor_distance_t unit){
-	uint16_t distance;
-
-	pit_OP_launch(_trigPin, TRIG_PIN_PULSE_US);
-
-	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(300)); //Wait for rising edge
-	softTimers_clear(timerHandler);
-	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(300)); //Wait for falling edge
-
-	if(unit == SENSOR_UNIT_CM)
-		distance = softTimers_get(timerHandler, false)/58;
-	else if (unit == SENSOR_UNIT_INCHES)
-		distance = softTimers_get(timerHandler, false)/148;
-	else
-		distance = 0;
-
-	return distance;
-}
+#endif
 
 /*==================[end of file]============================================*/
+#endif /* TPM_OUTPUT_COMPARE_H_ */

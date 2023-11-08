@@ -34,58 +34,54 @@
 #                                                                             */
 
 /*==================[inclusions]=============================================*/
-#include "sensor_sr04.h"
-#include "task.h"
-#include "softTimers.h"
 #include "pit_outputPulse.h"
-
-#define TRIG_PIN_PULSE_US 10
-
+#include "fsl_pit.h"
+#include "task.h"
+#include "efHal_gpio.h"
 /*==================[macros and typedef]=====================================*/
 
 /*==================[internal functions declaration]=========================*/
 
 /*==================[internal data definition]===============================*/
-
-int32_t timerHandler = 0;
-efHal_gpio_id_t _trigPin, _echoPin;
-
+efHal_gpio_id_t _pin;
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
 
 /*==================[external functions definition]==========================*/
 
-extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin){
-	_trigPin = trigPin;
-	_echoPin = echoPin;
+extern void pit_OP_config(void)
+{
+	/* Structure of initialize PIT */
+	pit_config_t pitConfig;
 
-	efHal_gpio_confPin(trigPin, EF_HAL_GPIO_OUTPUT, EF_HAL_GPIO_PULL_DISABLE, false);
-	efHal_gpio_setPin(trigPin, false);
-	efHal_gpio_confPin(echoPin, EF_HAL_GPIO_INPUT, EF_HAL_GPIO_PULL_DISABLE, false);
-	efHal_gpio_confInt(echoPin, EF_HAL_GPIO_INT_TYPE_BOTH_EDGE);
+	/*
+	* pitConfig.enableRunInDebug = false;
+	*/
+	PIT_GetDefaultConfig(&pitConfig);
 
-	softTimers_init();
-	timerHandler = softTimers_open(1);
+	PIT_Init(PIT, &pitConfig);
+	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+	EnableIRQ(PIT_IRQn);
 }
 
-extern uint16_t sensor_sr04_measure(sensor_distance_t unit){
-	uint16_t distance;
+extern void pit_OP_launch(efHal_gpio_id_t pin, uint32_t timeUs){
+	PIT_StopTimer(PIT, kPIT_Chnl_0);
+	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, USEC_TO_COUNT(timeUs, CLOCK_GetFreq(kCLOCK_BusClk)));
+	_pin = pin;
 
-	pit_OP_launch(_trigPin, TRIG_PIN_PULSE_US);
+	taskENTER_CRITICAL();
+	efHal_gpio_setPin(pin, true);
+	PIT_StartTimer(PIT, kPIT_Chnl_0);
+	taskEXIT_CRITICAL();
+}
 
-	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(300)); //Wait for rising edge
-	softTimers_clear(timerHandler);
-	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(300)); //Wait for falling edge
-
-	if(unit == SENSOR_UNIT_CM)
-		distance = softTimers_get(timerHandler, false)/58;
-	else if (unit == SENSOR_UNIT_INCHES)
-		distance = softTimers_get(timerHandler, false)/148;
-	else
-		distance = 0;
-
-	return distance;
+void PIT_IRQHandler(void)
+{
+	efHal_gpio_setPin(_pin, false);
+	PIT_StopTimer(PIT, kPIT_Chnl_0);
+    PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 }
 
 /*==================[end of file]============================================*/
+
