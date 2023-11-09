@@ -50,12 +50,12 @@
 /*==================[macros and typedef]=====================================*/
 #define SERVO_MIN_ANGLE 30
 #define SERVO_MAX_ANGLE 150
-#define SERVO_DELTA_ANGLE 5
-#define SERVO_PERIOD_MS 100
+#define SERVO_DELTA_ANGLE 1
+#define SERVO_PERIOD_MS 30
 
 #define SERVO_PWM EF_HAL_PWM0
 #define SENSOR_SR04_TRIG EF_HAL_D4
-#define SENSOR_SR04_ECHO EF_HAL_D5
+#define SENSOR_SR04_ECHO EF_HAL_D7
 
 #define RADAR_UART efHal_dh_UART0
 #define RADAR_UART_BAUDRATE 115200
@@ -128,7 +128,7 @@ static void uart_task(void *pvParameters)
 {
 	uint32_t uartNotifyValue = 0;
 	uint16_t posValue = 0, distValue = 0;
-	char uartDataToSend[11] = {0};
+	char uartDataToSend[8] = {0};
 
 	efHal_uart_conf_t uart_conf = {
 			.baudrate = RADAR_UART_BAUDRATE,
@@ -146,7 +146,7 @@ static void uart_task(void *pvParameters)
     	posValue = (uartNotifyValue >> 16) & 0xFFFF;
     	distValue = uartNotifyValue & 0xFFFF;
 
-    	sprintf(uartDataToSend, "(%d,%d)\n", posValue, distValue);
+    	sprintf(uartDataToSend, "%d,%d\n", distValue, posValue);
 
     	efHal_uart_send(RADAR_UART, uartDataToSend, strlen(uartDataToSend), pdMS_TO_TICKS(100));
     }
@@ -157,8 +157,8 @@ int main(void)
 {
     appBoard_init();
 
-    xTaskCreate(servo_task, "servo_task", 100, NULL, 2, NULL);
-    xTaskCreate(sensor_task, "sensor_task", 100, NULL, 1, &sensorTaskHandler);
+    xTaskCreate(servo_task, "servo_task", 100, NULL, 1, NULL);
+    xTaskCreate(sensor_task, "sensor_task", 100, NULL, 2, &sensorTaskHandler);
     xTaskCreate(uart_task, "uart_task", 200, NULL, 0, &uartTaskHandler);
 
     vTaskStartScheduler();

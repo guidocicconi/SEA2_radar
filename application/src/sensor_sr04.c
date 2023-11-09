@@ -67,6 +67,8 @@ extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin){
 
 	softTimers_init();
 	timerHandler = softTimers_open(1);
+
+	pit_OP_config();
 }
 
 extern uint16_t sensor_sr04_measure(sensor_distance_t unit){

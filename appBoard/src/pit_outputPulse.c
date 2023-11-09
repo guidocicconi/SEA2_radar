@@ -52,17 +52,16 @@ efHal_gpio_id_t _pin;
 
 extern void pit_OP_config(void)
 {
-	/* Structure of initialize PIT */
 	pit_config_t pitConfig;
 
-	/*
-	* pitConfig.enableRunInDebug = false;
-	*/
+	//pitConfig.enableRunInDebug = false;
 	PIT_GetDefaultConfig(&pitConfig);
 
 	PIT_Init(PIT, &pitConfig);
+	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, USEC_TO_COUNT(1000000U, CLOCK_GetFreq(kCLOCK_BusClk)));
 	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
 	EnableIRQ(PIT_IRQn);
+
 }
 
 extern void pit_OP_launch(efHal_gpio_id_t pin, uint32_t timeUs){
