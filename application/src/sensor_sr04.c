@@ -76,9 +76,9 @@ extern uint16_t sensor_sr04_measure(sensor_distance_t unit){
 
 	pit_OP_launch(_trigPin, TRIG_PIN_PULSE_US);
 
-	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(300)); //Wait for rising edge
+	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(1000)); //Wait for rising edge
 	softTimers_clear(timerHandler);
-	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(300)); //Wait for falling edge
+	efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(50)); //Wait for falling edge
 
 	if(unit == SENSOR_UNIT_CM)
 		distance = softTimers_get(timerHandler, false)/58;
