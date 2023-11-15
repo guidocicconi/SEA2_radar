@@ -45,8 +45,6 @@ extern "C" {
 #endif
 
 /*==================[macros and typedef]=====================================*/
-
-#define SERVO_PWM_MAX_COUNT 14999
 #define SERVO_PWM_MIN_DUTY_US 500
 #define SERVO_PWM_MAX_DUTY_US 2580
 

@@ -41,10 +41,12 @@
 #include "appBoard.h"
 #include "efHal_gpio.h"
 #include "efHal_uart.h"
+#include "efHal_spi.h"
 #include "softTimers.h"
 #include "efLeds.h"
 #include "servo.h"
 #include "sensor_sr04.h"
+#include "oled.h"
 
 /*==================[macros and typedef]=====================================*/
 #define SERVO_MIN_ANGLE 30
@@ -54,7 +56,11 @@
 
 #define SERVO_PWM EF_HAL_PWM0
 #define SENSOR_SR04_TRIG EF_HAL_D4
-#define SENSOR_SR04_ECHO EF_HAL_D7
+#define SENSOR_SR04_ECHO EF_HAL_D5
+
+#define DISPLAY_SPI efHal_dh_SPI0
+#define DISPLAY_CMD_PIN EF_HAL_D6
+#define DISPLAY_RST_PIN EF_HAL_D7
 
 #define RADAR_UART efHal_dh_UART0
 #define RADAR_UART_BAUDRATE 115200
@@ -69,7 +75,7 @@ typedef enum{
 
 /*==================[internal data definition]===============================*/
 
-static TaskHandle_t uartTaskHandler = NULL;
+static TaskHandle_t uartTaskHandler = NULL, displayTaskHandler = NULL;
 
 static efLeds_conf_t leds_conf[2] = {
 		{EF_HAL_GPIO_LED_GREEN, false},
@@ -84,7 +90,7 @@ static void servo_sensor_task(void *pvParameters)
 	uint8_t servoPosDegree = SERVO_MIN_ANGLE;
 	int8_t deltaPosDegree = SERVO_DELTA_ANGLE;
 	uint16_t distanceCm = 0;
-	uint32_t uartNotifyValue = 0;
+	uint32_t notifyValue = 0;
 
 	efLeds_init(leds_conf, TOTAL_LEDS);
 	efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
@@ -101,9 +107,10 @@ static void servo_sensor_task(void *pvParameters)
 
     	distanceCm = sensor_sr04_measure(SENSOR_UNIT_CM);
 
-    	uartNotifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
+    	notifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
 
-    	xTaskNotify(uartTaskHandler, uartNotifyValue, eSetValueWithOverwrite);
+    	xTaskNotify(uartTaskHandler, notifyValue, eSetValueWithOverwrite);
+    	xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
 
     	servoPosDegree += deltaPosDegree;
     	if(servoPosDegree >= SERVO_MAX_ANGLE) deltaPosDegree = -SERVO_DELTA_ANGLE;
@@ -139,13 +146,40 @@ static void uart_task(void *pvParameters)
     }
 }
 
+static void display_task(void *pvParameters)
+{
+	uint32_t dislpayNotifyValue = 0;
+	uint16_t posValue = 0, distValue = 0;
+
+	char displayPos[13] = {0};
+	char displayDist[17] = {0};
+
+	oled_init(DISPLAY_SPI, DISPLAY_CMD_PIN, DISPLAY_RST_PIN);
+
+    for (;;)
+    {
+    	xTaskNotifyWait(0, 0, &dislpayNotifyValue, portMAX_DELAY);
+
+    	posValue = (dislpayNotifyValue >> 16) & 0xFFFF;
+    	distValue = dislpayNotifyValue & 0xFFFF;
+
+    	sprintf(displayPos, "Ángulo: %03d°", posValue);
+    	if(distValue != 0) sprintf(displayDist, "Distancia: %03dcm", distValue);
+    	else sprintf(displayDist, "Distancia: ERROR");
+
+    	oled_putString(5, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+    	oled_putString(5, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+    }
+}
+
 /*==================[external functions definition]==========================*/
 int main(void)
 {
     appBoard_init();
 
-    xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 1, NULL);
-    xTaskCreate(uart_task, "uart_task", 200, NULL, 0, &uartTaskHandler);
+    xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 2, NULL);
+    xTaskCreate(uart_task, "uart_task", 200, NULL, 1, &uartTaskHandler);
+    xTaskCreate(display_task, "display_task", 200, NULL, 0, &displayTaskHandler);
 
     vTaskStartScheduler();
     for (;;);
