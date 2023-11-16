@@ -52,7 +52,7 @@
 #define SERVO_MIN_ANGLE 30
 #define SERVO_MAX_ANGLE 150
 #define SERVO_DELTA_ANGLE 1
-#define SERVO_PERIOD_MS 30
+#define SERVO_PERIOD_MS 50
 
 #define SERVO_PWM EF_HAL_PWM0
 #define SENSOR_SR04_TRIG EF_HAL_D4
@@ -92,11 +92,7 @@ static void servo_sensor_task(void *pvParameters)
 	uint16_t distanceCm = 0;
 	uint32_t notifyValue = 0;
 
-	efLeds_init(leds_conf, TOTAL_LEDS);
-	efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
-
     sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO);
-
     servo_init(SERVO_PWM, SERVO_MIN_ANGLE);
 
     for (;;)
@@ -110,7 +106,7 @@ static void servo_sensor_task(void *pvParameters)
     	notifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
 
     	xTaskNotify(uartTaskHandler, notifyValue, eSetValueWithOverwrite);
-    	xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
+    	//xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
 
     	servoPosDegree += deltaPosDegree;
     	if(servoPosDegree >= SERVO_MAX_ANGLE) deltaPosDegree = -SERVO_DELTA_ANGLE;
@@ -175,11 +171,9 @@ static void display_task(void *pvParameters)
 /*==================[external functions definition]==========================*/
 int main(void)
 {
-    appBoard_init();
-
     xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 2, NULL);
     xTaskCreate(uart_task, "uart_task", 200, NULL, 1, &uartTaskHandler);
-    xTaskCreate(display_task, "display_task", 200, NULL, 0, &displayTaskHandler);
+    //xTaskCreate(display_task, "display_task", 200, NULL, 0, &displayTaskHandler);
 
     vTaskStartScheduler();
     for (;;);
@@ -188,6 +182,12 @@ int main(void)
 extern void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 {
     while (1);
+}
+
+void vApplicationDaemonTaskStartupHook(){
+    appBoard_init();
+	efLeds_init(leds_conf, TOTAL_LEDS);
+	efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
 }
 
 void vApplicationTickHook(void)

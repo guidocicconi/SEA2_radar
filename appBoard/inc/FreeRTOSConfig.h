@@ -6,5 +6,11 @@
 #undef configUSE_TICK_HOOK
 #endif
 
-#define configUSE_TICK_HOOK                     1
+#define configUSE_TICK_HOOK 1
+
+#ifdef configUSE_DAEMON_TASK_STARTUP_HOOK
+#undef configUSE_DAEMON_TASK_STARTUP_HOOK
+#endif
+
+#define configUSE_DAEMON_TASK_STARTUP_HOOK 1
 
