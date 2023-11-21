@@ -64,8 +64,13 @@ extern void servo_init(efHal_pwm_id_t pwmPin, uint8_t initialPos){
 
 extern void servo_setPos(uint8_t posDegree){
 	float servoDutyCount = 0;
-	servoDutyCount = SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(efHal_pwm_getPeriodCount(_pwmPin) + 1) + (float)posDegree/180.0 * ((SERVO_PWM_MAX_DUTY_US*1e-6*50.0*(efHal_pwm_getPeriodCount(_pwmPin) + 1))-(SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(efHal_pwm_getPeriodCount(_pwmPin) + 1)));
+
+	servoDutyCount = SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(efHal_pwm_getPeriodCount(_pwmPin) + 1) +
+					 (float)posDegree/180.0 * ((SERVO_PWM_MAX_DUTY_US*1e-6*50.0*(efHal_pwm_getPeriodCount(_pwmPin) + 1))-
+					 (SERVO_PWM_MIN_DUTY_US*1e-6*50.0*(efHal_pwm_getPeriodCount(_pwmPin) + 1)));
+
 	efHal_pwm_setDuty(_pwmPin, (uint32_t)servoDutyCount, EF_HAL_PWM_DUTY_COUNT);
+
 	return;
 }
 

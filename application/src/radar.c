@@ -52,15 +52,15 @@
 #define SERVO_MIN_ANGLE 30
 #define SERVO_MAX_ANGLE 150
 #define SERVO_DELTA_ANGLE 1
-#define SERVO_PERIOD_MS 50
+#define SERVO_PERIOD_MS 30
 
 #define SERVO_PWM EF_HAL_PWM0
 #define SENSOR_SR04_TRIG EF_HAL_D4
 #define SENSOR_SR04_ECHO EF_HAL_D5
 
 #define DISPLAY_SPI efHal_dh_SPI0
-#define DISPLAY_CMD_PIN EF_HAL_D6
-#define DISPLAY_RST_PIN EF_HAL_D7
+#define DISPLAY_CMD_PIN EF_HAL_D7
+#define DISPLAY_RST_PIN EF_HAL_D6
 
 #define RADAR_UART efHal_dh_UART0
 #define RADAR_UART_BAUDRATE 115200
@@ -106,7 +106,7 @@ static void servo_sensor_task(void *pvParameters)
     	notifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
 
     	xTaskNotify(uartTaskHandler, notifyValue, eSetValueWithOverwrite);
-    	//xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
+    	xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
 
     	servoPosDegree += deltaPosDegree;
     	if(servoPosDegree >= SERVO_MAX_ANGLE) deltaPosDegree = -SERVO_DELTA_ANGLE;
@@ -151,6 +151,7 @@ static void display_task(void *pvParameters)
 	char displayDist[17] = {0};
 
 	oled_init(DISPLAY_SPI, DISPLAY_CMD_PIN, DISPLAY_RST_PIN);
+	oled_clearScreen(OLED_COLOR_BLACK);
 
     for (;;)
     {
@@ -159,7 +160,7 @@ static void display_task(void *pvParameters)
     	posValue = (dislpayNotifyValue >> 16) & 0xFFFF;
     	distValue = dislpayNotifyValue & 0xFFFF;
 
-    	sprintf(displayPos, "Ángulo: %03d°", posValue);
+    	sprintf(displayPos, "Angulo: %03d°", posValue);
     	if(distValue != 0) sprintf(displayDist, "Distancia: %03dcm", distValue);
     	else sprintf(displayDist, "Distancia: ERROR");
 
@@ -171,9 +172,11 @@ static void display_task(void *pvParameters)
 /*==================[external functions definition]==========================*/
 int main(void)
 {
+	appBoard_init();
+
     xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 2, NULL);
     xTaskCreate(uart_task, "uart_task", 200, NULL, 1, &uartTaskHandler);
-    //xTaskCreate(display_task, "display_task", 200, NULL, 0, &displayTaskHandler);
+    xTaskCreate(display_task, "display_task", 200, NULL, 0, &displayTaskHandler);
 
     vTaskStartScheduler();
     for (;;);
@@ -185,7 +188,6 @@ extern void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 }
 
 void vApplicationDaemonTaskStartupHook(){
-    appBoard_init();
 	efLeds_init(leds_conf, TOTAL_LEDS);
 	efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
 }
