@@ -80,7 +80,7 @@ extern uint16_t sensor_sr04_measure(sensor_distance_t unit){
 
 	if(!efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(500))) error = true; //Wait for rising edge
 	softTimers_clear(timerHandler);
-	if(!efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(50))) error = true;  //Wait for falling edge
+	if(!efHal_gpio_waitForInt(_echoPin, pdMS_TO_TICKS(30))) error = true;  //Wait for falling edge
 
 	if(unit == SENSOR_UNIT_CM)
 		distance = softTimers_get(timerHandler, false)/58;
@@ -89,7 +89,7 @@ extern uint16_t sensor_sr04_measure(sensor_distance_t unit){
 	else
 		distance = 0;
 
-	if(error) distance = 0;
+	if(error) distance = SENSOR_SR04_ERROR;
 
 	return distance;
 }

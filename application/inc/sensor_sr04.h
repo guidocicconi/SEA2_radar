@@ -40,6 +40,8 @@
 #include "appBoard.h"
 #include "efHal_gpio.h"
 
+#define SENSOR_SR04_ERROR 999
+
 /*==================[cplusplus]==============================================*/
 #ifdef __cplusplus
 extern "C" {

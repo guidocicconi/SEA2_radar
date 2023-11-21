@@ -147,11 +147,16 @@ static void display_task(void *pvParameters)
 	uint32_t dislpayNotifyValue = 0;
 	uint16_t posValue = 0, distValue = 0;
 
-	char displayPos[13] = {0};
-	char displayDist[17] = {0};
+	char displayPos[8] = {0};
+	char displayDist[11] = {0};
 
 	oled_init(DISPLAY_SPI, DISPLAY_CMD_PIN, DISPLAY_RST_PIN);
 	oled_clearScreen(OLED_COLOR_BLACK);
+
+	sprintf(displayPos, "Angulo:");
+	sprintf(displayDist, "Distancia:");
+	oled_putString(5, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+	oled_putString(5, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
 
     for (;;)
     {
@@ -160,12 +165,12 @@ static void display_task(void *pvParameters)
     	posValue = (dislpayNotifyValue >> 16) & 0xFFFF;
     	distValue = dislpayNotifyValue & 0xFFFF;
 
-    	sprintf(displayPos, "Angulo: %03d°", posValue);
-    	if(distValue != 0) sprintf(displayDist, "Distancia: %03dcm", distValue);
-    	else sprintf(displayDist, "Distancia: ERROR");
+    	sprintf(displayPos, "%03d  ", posValue);
+    	if(distValue != SENSOR_SR04_ERROR) sprintf(displayDist, "%03dcm  ", distValue);
+    	else sprintf(displayDist, "ERROR  ");
 
-    	oled_putString(5, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
-    	oled_putString(5, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+    	oled_putString(51, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+    	oled_putString(70, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
     }
 }
 
