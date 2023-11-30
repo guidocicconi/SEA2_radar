@@ -38,6 +38,7 @@
 #include <string.h>
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 #include "appBoard.h"
 #include "efHal_gpio.h"
 #include "efHal_uart.h"
@@ -52,7 +53,7 @@
 #define SERVO_MIN_ANGLE 30
 #define SERVO_MAX_ANGLE 150
 #define SERVO_DELTA_ANGLE 1
-#define SERVO_PERIOD_MS 30
+#define SERVO_PERIOD_MS 50
 
 #define SERVO_PWM EF_HAL_PWM0
 #define SENSOR_SR04_TRIG EF_HAL_D4
@@ -75,7 +76,8 @@ typedef enum{
 
 /*==================[internal data definition]===============================*/
 
-static TaskHandle_t uartTaskHandler = NULL, displayTaskHandler = NULL;
+static TaskHandle_t uartTaskHandler = NULL, displayTaskHandler = NULL, servoTaskHandler = NULL;
+static TimerHandle_t servoTimerHandler;
 
 static efLeds_conf_t leds_conf[2] = {
 		{EF_HAL_GPIO_LED_GREEN, false},
@@ -85,6 +87,12 @@ static efLeds_conf_t leds_conf[2] = {
 /*==================[external data definition]===============================*/
 
 /*==================[internal functions definition]==========================*/
+
+static void servoTimerCallback(TimerHandle_t xTimer){
+	xTaskNotifyStateClear(servoTaskHandler);
+	xTaskNotifyGive(servoTaskHandler);
+}
+
 static void servo_sensor_task(void *pvParameters)
 {
 	uint8_t servoPosDegree = SERVO_MIN_ANGLE;
@@ -92,14 +100,18 @@ static void servo_sensor_task(void *pvParameters)
 	uint16_t distanceCm = 0;
 	uint32_t notifyValue = 0;
 
+	servoTimerHandler = xTimerCreate("servo_timer", pdMS_TO_TICKS(SERVO_PERIOD_MS), pdTRUE, 0, servoTimerCallback);
+
     sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO);
     servo_init(SERVO_PWM, SERVO_MIN_ANGLE);
+
+	xTimerStart(servoTimerHandler, portMAX_DELAY);
 
     for (;;)
     {
     	servo_setPos(servoPosDegree);
 
-    	vTaskDelay(pdMS_TO_TICKS(SERVO_PERIOD_MS));
+    	xTaskNotifyWait(0, 0, NULL, portMAX_DELAY);
 
     	distanceCm = sensor_sr04_measure(SENSOR_UNIT_CM);
 
@@ -179,7 +191,7 @@ int main(void)
 {
 	appBoard_init();
 
-    xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 2, NULL);
+    xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 2, &servoTaskHandler);
     xTaskCreate(uart_task, "uart_task", 200, NULL, 1, &uartTaskHandler);
     xTaskCreate(display_task, "display_task", 200, NULL, 0, &displayTaskHandler);
 

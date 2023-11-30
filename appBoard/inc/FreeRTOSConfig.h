@@ -14,3 +14,9 @@
 
 #define configUSE_DAEMON_TASK_STARTUP_HOOK 1
 
+#ifdef configUSE_TIMERS
+#undef configUSE_TIMERS
+#endif
+
+#define configUSE_TIMERS 1
+
