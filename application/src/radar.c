@@ -46,6 +46,7 @@
 #include "efLeds.h"
 #include "servo.h"
 #include "sensor_sr04.h"
+#include "pit_outputPulse.h"
 #include "oled.h"
 
 /*==================[macros and typedef]=====================================*/
@@ -66,118 +67,127 @@
 #define RADAR_UART_BAUDRATE 115200
 
 typedef enum{
-	GREEN_LED = 0,
-	RED_LED,
-	TOTAL_LEDS
+    GREEN_LED = 0,
+    RED_LED,
+    TOTAL_LEDS
 }leds_t;
 
 /*==================[internal functions declaration]=========================*/
+static void servo_sensor_task(void *pvParameters);
+static void uart_task(void *pvParameters);
+static void display_task(void *pvParameters);
+static void sr04_triggerCallback(efHal_gpio_id_t pin, uint32_t timeUs);
 
 /*==================[internal data definition]===============================*/
 
 static TaskHandle_t uartTaskHandler = NULL, displayTaskHandler = NULL;
 
 static efLeds_conf_t leds_conf[2] = {
-		{EF_HAL_GPIO_LED_GREEN, false},
-		{EF_HAL_GPIO_LED_RED, false},
+        {EF_HAL_GPIO_LED_GREEN, false},
+        {EF_HAL_GPIO_LED_RED, false},
 };
 
 /*==================[external data definition]===============================*/
 
+
 /*==================[internal functions definition]==========================*/
+static void sr04_triggerCallback(efHal_gpio_id_t pin, uint32_t timeUs){
+    pit_OP_launch(pin, timeUs);
+}
+
 static void servo_sensor_task(void *pvParameters)
 {
-	uint8_t servoPosDegree = SERVO_MIN_ANGLE;
-	int8_t deltaPosDegree = SERVO_DELTA_ANGLE;
-	uint16_t distanceCm = 0;
-	uint32_t notifyValue = 0;
+    uint8_t servoPosDegree = SERVO_MIN_ANGLE;
+    int8_t deltaPosDegree = SERVO_DELTA_ANGLE;
+    uint16_t distanceCm = 0;
+    uint32_t notifyValue = 0;
 
-    sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO);
+    sensor_sr04_init(SENSOR_SR04_TRIG, SENSOR_SR04_ECHO, sr04_triggerCallback);
     servo_init(SERVO_PWM, SERVO_MIN_ANGLE);
 
     for (;;)
     {
-    	servo_setPos(servoPosDegree);
+        servo_setPos(servoPosDegree);
 
-    	vTaskDelay(pdMS_TO_TICKS(SERVO_PERIOD_MS));
+        vTaskDelay(pdMS_TO_TICKS(SERVO_PERIOD_MS));
 
-    	distanceCm = sensor_sr04_measure(SENSOR_UNIT_CM);
+        distanceCm = sensor_sr04_measure(SENSOR_UNIT_CM);
 
-    	notifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
+        notifyValue = ((servoPosDegree << 16) & 0xFFFF0000) | (distanceCm & 0xFFFF);
 
-    	xTaskNotify(uartTaskHandler, notifyValue, eSetValueWithOverwrite);
-    	xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
+        xTaskNotify(uartTaskHandler, notifyValue, eSetValueWithOverwrite);
+        xTaskNotify(displayTaskHandler, notifyValue, eSetValueWithOverwrite);
 
-    	servoPosDegree += deltaPosDegree;
-    	if(servoPosDegree >= SERVO_MAX_ANGLE) deltaPosDegree = -SERVO_DELTA_ANGLE;
-    	else if(servoPosDegree <= SERVO_MIN_ANGLE) deltaPosDegree = SERVO_DELTA_ANGLE;
+        servoPosDegree += deltaPosDegree;
+        if(servoPosDegree >= SERVO_MAX_ANGLE) deltaPosDegree = -SERVO_DELTA_ANGLE;
+        else if(servoPosDegree <= SERVO_MIN_ANGLE) deltaPosDegree = SERVO_DELTA_ANGLE;
     }
 }
 
 static void uart_task(void *pvParameters)
 {
-	uint32_t uartNotifyValue = 0;
-	uint16_t posValue = 0, distValue = 0;
-	char uartDataToSend[8] = {0};
+    uint32_t uartNotifyValue = 0;
+    uint16_t posValue = 0, distValue = 0;
+    char uartDataToSend[8] = {0};
 
-	efHal_uart_conf_t uart_conf = {
-			.baudrate = RADAR_UART_BAUDRATE,
-			.dataBits = EF_HAL_UART_DATA_BITS_8,
-			.parity = EF_HAL_UART_PARITY_NONE,
-			.stopBits = EF_HAL_UART_STOP_BITS_1
-	};
+    efHal_uart_conf_t uart_conf = {
+            .baudrate = RADAR_UART_BAUDRATE,
+            .dataBits = EF_HAL_UART_DATA_BITS_8,
+            .parity = EF_HAL_UART_PARITY_NONE,
+            .stopBits = EF_HAL_UART_STOP_BITS_1
+    };
 
-	efHal_uart_conf(RADAR_UART, &uart_conf);
+    efHal_uart_conf(RADAR_UART, &uart_conf);
 
     for (;;)
     {
-    	xTaskNotifyWait(0, 0, &uartNotifyValue, portMAX_DELAY);
+        xTaskNotifyWait(0, 0, &uartNotifyValue, portMAX_DELAY);
 
-    	posValue = (uartNotifyValue >> 16) & 0xFFFF;
-    	distValue = uartNotifyValue & 0xFFFF;
+        posValue = (uartNotifyValue >> 16) & 0xFFFF;
+        distValue = uartNotifyValue & 0xFFFF;
 
-    	sprintf(uartDataToSend, "%d,%d\n", distValue, posValue);
+        sprintf(uartDataToSend, "%d,%d\n", distValue, posValue);
 
-    	efHal_uart_send(RADAR_UART, uartDataToSend, strlen(uartDataToSend), portMAX_DELAY);
+        efHal_uart_send(RADAR_UART, uartDataToSend, strlen(uartDataToSend), portMAX_DELAY);
     }
 }
 
 static void display_task(void *pvParameters)
 {
-	uint32_t dislpayNotifyValue = 0;
-	uint16_t posValue = 0, distValue = 0;
+    uint32_t dislpayNotifyValue = 0;
+    uint16_t posValue = 0, distValue = 0;
 
-	char displayPos[8] = {0};
-	char displayDist[11] = {0};
+    char displayPos[8] = {0};
+    char displayDist[11] = {0};
 
-	oled_init(DISPLAY_SPI, DISPLAY_CMD_PIN, DISPLAY_RST_PIN);
-	oled_clearScreen(OLED_COLOR_BLACK);
+    oled_init(DISPLAY_SPI, DISPLAY_CMD_PIN, DISPLAY_RST_PIN);
+    oled_clearScreen(OLED_COLOR_BLACK);
 
-	sprintf(displayPos, "Angulo:");
-	sprintf(displayDist, "Distancia:");
-	oled_putString(5, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
-	oled_putString(5, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+    sprintf(displayPos, "Angulo:");
+    sprintf(displayDist, "Distancia:");
+    oled_putString(5, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+    oled_putString(5, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
 
     for (;;)
     {
-    	xTaskNotifyWait(0, 0, &dislpayNotifyValue, portMAX_DELAY);
+        xTaskNotifyWait(0, 0, &dislpayNotifyValue, portMAX_DELAY);
 
-    	posValue = (dislpayNotifyValue >> 16) & 0xFFFF;
-    	distValue = dislpayNotifyValue & 0xFFFF;
+        posValue = (dislpayNotifyValue >> 16) & 0xFFFF;
+        distValue = dislpayNotifyValue & 0xFFFF;
 
-    	sprintf(displayPos, "%03d  ", posValue);
-    	if(distValue != SENSOR_SR04_ERROR) sprintf(displayDist, "%03dcm  ", distValue);
-    	else sprintf(displayDist, "ERROR  ");
+        sprintf(displayPos, "%03d  ", posValue);
+        if(distValue != SENSOR_SR04_ERROR) sprintf(displayDist, "%03dcm  ", distValue);
+        else sprintf(displayDist, "ERROR  ");
 
-    	oled_putString(51, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
-    	oled_putString(70, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+        oled_putString(51, 5, (uint8_t*)displayPos, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
+        oled_putString(70, 25, (uint8_t*)displayDist, OLED_COLOR_WHITE, OLED_COLOR_BLACK);
     }
 }
 
 /*==================[external functions definition]==========================*/
 int main(void)
 {
-	appBoard_init();
+    appBoard_init();
 
     xTaskCreate(servo_sensor_task, "servo_sensor_task", 100, NULL, 2, NULL);
     xTaskCreate(uart_task, "uart_task", 200, NULL, 1, &uartTaskHandler);
@@ -193,12 +203,12 @@ extern void vApplicationStackOverflowHook(TaskHandle_t xTask, char *pcTaskName)
 }
 
 void vApplicationDaemonTaskStartupHook(){
-	efLeds_init(leds_conf, TOTAL_LEDS);
-	efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
+    efLeds_init(leds_conf, TOTAL_LEDS);
+    efLeds_msg(GREEN_LED, EF_LEDS_MSG_HEARTBEAT);
 }
 
 void vApplicationTickHook(void)
 {
-	softTimers_rollOver();
+    softTimers_rollOver();
 }
 /*==================[end of file]============================================*/

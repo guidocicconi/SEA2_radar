@@ -52,33 +52,33 @@ efHal_gpio_id_t _pin;
 
 extern void pit_OP_config(void)
 {
-	pit_config_t pitConfig;
+    pit_config_t pitConfig;
 
-	//pitConfig.enableRunInDebug = false;
-	PIT_GetDefaultConfig(&pitConfig);
+    //pitConfig.enableRunInDebug = false;
+    PIT_GetDefaultConfig(&pitConfig);
 
-	PIT_Init(PIT, &pitConfig);
-	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, USEC_TO_COUNT(1000000U, CLOCK_GetFreq(kCLOCK_BusClk)));
-	PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
-	EnableIRQ(PIT_IRQn);
+    PIT_Init(PIT, &pitConfig);
+    PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, USEC_TO_COUNT(1000000U, CLOCK_GetFreq(kCLOCK_BusClk)));
+    PIT_EnableInterrupts(PIT, kPIT_Chnl_0, kPIT_TimerInterruptEnable);
+    EnableIRQ(PIT_IRQn);
 
 }
 
 extern void pit_OP_launch(efHal_gpio_id_t pin, uint32_t timeUs){
-	PIT_StopTimer(PIT, kPIT_Chnl_0);
-	PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, USEC_TO_COUNT(timeUs, CLOCK_GetFreq(kCLOCK_BusClk)));
-	_pin = pin;
+    PIT_StopTimer(PIT, kPIT_Chnl_0);
+    PIT_SetTimerPeriod(PIT, kPIT_Chnl_0, USEC_TO_COUNT(timeUs, CLOCK_GetFreq(kCLOCK_BusClk)));
+    _pin = pin;
 
-	taskENTER_CRITICAL();
-	efHal_gpio_setPin(pin, true);
-	PIT_StartTimer(PIT, kPIT_Chnl_0);
-	taskEXIT_CRITICAL();
+    taskENTER_CRITICAL();
+    efHal_gpio_setPin(pin, true);
+    PIT_StartTimer(PIT, kPIT_Chnl_0);
+    taskEXIT_CRITICAL();
 }
 
 void PIT_IRQHandler(void)
 {
-	efHal_gpio_setPin(_pin, false);
-	PIT_StopTimer(PIT, kPIT_Chnl_0);
+    efHal_gpio_setPin(_pin, false);
+    PIT_StopTimer(PIT, kPIT_Chnl_0);
     PIT_ClearStatusFlags(PIT, kPIT_Chnl_0, kPIT_TimerFlag);
 }
 

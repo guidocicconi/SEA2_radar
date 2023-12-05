@@ -50,15 +50,16 @@ extern "C" {
 /*==================[macros and typedef]=====================================*/
 
 typedef enum{
-	SENSOR_UNIT_CM = 0,
-	SENSOR_UNIT_INCHES
+    SENSOR_UNIT_CM = 0,
+    SENSOR_UNIT_INCHES
 } sensor_distance_t;
 
+typedef void (*sr04_trigger_callback)(efHal_gpio_id_t pin, uint32_t timeUs);
 /*==================[external data declaration]==============================*/
 
 /*==================[external functions declaration]=========================*/
 
-extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin);
+extern void sensor_sr04_init(efHal_gpio_id_t trigPin, efHal_gpio_id_t echoPin, sr04_trigger_callback cb);
 extern uint16_t sensor_sr04_measure(sensor_distance_t unit);
 
 /*==================[cplusplus]==============================================*/

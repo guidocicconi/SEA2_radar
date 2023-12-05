@@ -59,5 +59,6 @@ MODS += modules$(DS)efErrorHdl
 MODS += modules$(DS)softTimers
 MODS += modules$(DS)utils
 MODS += oModules$(DS)ssd1306
+MODS += modules$(DS)servo
 MODS += modules$(DS)bsp_$(BOARD)
 

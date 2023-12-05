@@ -35,6 +35,7 @@
 
 /*==================[inclusions]=============================================*/
 #include "appBoard.h"
+#include "pit_outputPulse.h"
 
 /*==================[macros and typedef]=====================================*/
 
@@ -52,6 +53,7 @@ extern void appBoard_init(void)
 {
 #if BOARD == frdmkl46z
     bsp_frdmkl46z_init();
+    pit_OP_config();
 #endif
 }
 /*==================[end of file]============================================*/
